@@ -1,5 +1,4 @@
 import vapoursynth as vs
-import adjust
 
 
 # Based on ASTDR DeRainbow function v1.74 for Avisynth
@@ -26,26 +25,51 @@ def BlurForASTDR(clip, amount=0, planes=None):
     return clip.std.Convolution(matrix=blur_matrix, planes=planes)
 
 
-def ASTDR(input_clip, strength=5, tempsoftth=30, tempsoftrad=3, tempsoftsc=3, blstr=None, tht=255, fluxstv=None, dcn=15, edgem=False, exmc=False, edgemprefil=None, separated=False):
+def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=None, fluxstv=None, dcn=None, edgem=None, exmc=None, edgemprefil=None, separated=None):
     core = vs.get_core()
 
-
     sisfield = separated
-    fnomc = sisfield && !exmc
-    strn = strength
+    fnomc = sisfield and not exmc
+
+
+    if strength is None:
+        strength = 5
+
+    if tempsoftth is None:
+        tempsoftth = 30
+
+    if tempsoftrad is None:
+        tempsoftrad = 3
+
+    if tempsoftsc is None:
+        tempsoftsc = 3
+    
     if blstr is None:
         if sisfield:
             blstr = 0.3
         else:
             blstr = 0.5
-    tschrth = tempsoftth
-    tschrrad = tempsoftrad
-    tschrsc = tempsoftsc / 255
+
+    if tht is None:
+        tht = 255
+
     if fluxstv is None:
         if sisfield:
             fluxstv = 60
         else:
             fluxstv = 75
+
+    if dcn is None:
+        dcn=15
+
+    if edgem is None:
+        edgem = False
+
+    if exmc is None:
+        exmc = False
+
+    if separated is None:
+        separated = False
 
     inrainev = input_clip
     if fnomc:
@@ -64,10 +88,10 @@ def ASTDR(input_clip, strength=5, tempsoftth=30, tempsoftrad=3, tempsoftsc=3, bl
     if not sisfield:
         filtered_uv = filtered_uv.warp.AWarpSharp2(depth=4, chroma=0, cplace="mpeg2", planes=[1, 2])
 
-    cs = strn * 3 / 5
+    chrom_spac = strength * 3 / 5
     if sisfield:
-        cs = strn * 2 / 5
-    filtered_uv = filtered_uv.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=cs, chrom_tmp=strn).misc.SCDetect(threshold=tschrsc).focus2.TemporalSoften2(radius=tschrrad, luma_threshold=0, chroma_threshold=tschrth, mode=2)
+        chrom_spac = strength * 2 / 5
+    filtered_uv = filtered_uv.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
     filtered_uv = BlurForASTDR(filtered_uv, amount=blstr, planes=[1, 2])
 
     if not sisfield:
@@ -84,7 +108,7 @@ def ASTDR(input_clip, strength=5, tempsoftth=30, tempsoftrad=3, tempsoftsc=3, bl
     if fnomc:
         filtered_odd = input_clip.std.SelectEvery(cycle=2, offsets=1)
         filtered_odd = filtered_odd.decross.DeCross(thresholdy=15, noise=dcn, margin=1).flux.SmoothST(temporal_threshold=fluxstv, spatial_threshold=flux_spatial_threshold, planes=[1, 2])
-        filtered_odd = filtered_odd.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=cs, chrom_tmp=strn).mist.SCDetect(threshold=tschrsc).focus2.TemporalSoften2(radius=tschrrad, luma_threshold=0, chroma_threshold=tschrth, mode=2)
+        filtered_odd = filtered_odd.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
         filtered_odd = BlurForASTDR(filtered_odd, amount=blstr, planes=[1, 2])
         filtered_odd = filtered_odd.fft3dfilter.FFT3DFilter(sigma=sigma, sigma3=sigma3, planes=[1, 2], degrid=1)
         filtered_uv = core.std.Interleave([filtered_uv, filtered_odd])
@@ -93,7 +117,9 @@ def ASTDR(input_clip, strength=5, tempsoftth=30, tempsoftrad=3, tempsoftsc=3, bl
     last = filtered_uv
 
     if not exmc:
-        momask = adjust.Tweak(clip=input_clip, sat=1.1).MotionMask(th1=1, th2=1, tht=tht)
+        import adjust
+
+        momask = adjust.Tweak(clip=input_clip, sat=1.1).motionmask.MotionMask(th1=1, th2=1, tht=tht)
         momaskinv = momask.std.Maximum(planes=0).std.Inflate(planes=0).std.Invert(planes=0).std.Levels(min_in=0, gamma=2, max_in=255, min_out=0, max_out=255, planes=0)
 
         filtered = core.std.MaskedMerge(filtered_uv, input_clip, momaskinv, first_plane=True, planes=[1, 2])
@@ -107,3 +133,173 @@ def ASTDR(input_clip, strength=5, tempsoftth=30, tempsoftrad=3, tempsoftsc=3, bl
         last = core.std.MaskedMerge(input_clip, last, edgemclip, first_plane=True, planes=[1, 2])
 
     return last
+
+
+# Partial port of the sbr function from SMDegrain Avisynth script.
+# Only the parts needed by MinBlurForASTDRmc are included.
+
+def sbrForASTDRmc(clip):
+    core = vs.get_core()
+
+    matrix11 = [1, 2, 1,
+                2, 4, 2,
+                1, 2, 1]
+
+    rg11 = clip.std.Convolution(matrix=matrix11, planes=0)
+
+    rg11D = core.std.MakeDiff(clipa=clip, clipb=rg11, planes=0)
+
+    rg11DD = core.std.MakeDiff(clipa=rg11D, clipb=rg11D.std.Convolution(matrix=matrix11, planes=0), planes=0)
+    
+    rg11DD = core.std.Expr(clips=[rg11DD, rg11D], expr=["x 128 - y 128 - * 0 < 128 x 128 - abs y 128 - abs < x y ? ?", ""])
+
+    return core.std.MakeDiff(clipa=clip, clipb=rg11DD, planes=0)
+
+
+# Partial port of the MinBlur function from SMDegrain Avisynth script.
+# Only the parts needed by ASTDRmc are included.
+
+def MinBlurForASTDRmc(clip, r=1, blurrep=False, planes=None):
+    core = vs.get_core()
+
+    if r < 0 or r > 3:
+        raise ValueError("MinBlurForASTDRmc: r must be between 0 and 3 (inclusive).")
+
+
+    matrix11 = [1, 2, 1,
+                2, 4, 2,
+                1, 2, 1]
+
+    matrix20 = [1, 1, 1,
+                1, 1, 1,
+                1, 1, 1]
+
+    if r == 0:
+        RG11D = sbrForASTDRmc(clip)
+    else:
+        RG11D = clip.std.Convolution(matrix=matrix11, planes=planes)
+        # Zero..two passes:
+        for i in range(1, r):
+            RG11D = RG11D.std.Convolution(matrix=matrix20, planes=planes)
+
+    RG11D = core.std.MakeDiff(clipa=clip, clipb=RG11D, planes=planes)
+
+    if r < 2:
+        RG4D = clip.std.Median(planes=planes)
+    else:
+        RG4D = clip.ctmf.CTMF(radius=r, planes=planes)
+
+    RG4D = core.std.MakeDiff(clipa=clip, clipb=RG4D, planes=planes)
+
+    expr = "x 128 - y 128 - * 0 < 128 x 128 - abs y 128 - abs < x y ? ?"
+
+    DD = core.std.Expr(clips=[RG11D, RG4D], expr=[expr if i in planes else '' for i in range(clip.format.num_planes)])
+
+    last = core.std.MakeDiff(clip, DD, planes=planes)
+
+    if blurrep:
+        last = core.rgvs.Repair(last, clip.rgvs.RemoveGrain(mode=[17, 0]), mode=[9, 0])
+
+    return last
+
+
+def mc4ASTDRmc(clip, radius, prefil, thsad, chroma):
+    core = vs.get_core()
+
+    if radius == 1:
+        thsad = None
+
+    masuper = prefil.mv.Super()
+    mcsuper = clip.mv.Super(levels=1)
+
+    f = []
+    b = []
+
+    for i in range(1, radius + 1):
+        b += core.mv.Compensate(clip=clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=True, chroma=chroma), thsad=thsad)
+        f += core.mv.Compensate(clip=clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=False, chroma=chroma), thsad=thsad)
+
+    f.reverse()
+
+    return core.std.Interleave(clips=f + input + b)
+
+
+def ASTDRmc(input, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False):
+    core = vs.get_core()
+
+    sisfield = separated
+
+    if tempsoftrad is None:
+        tempsoftrad = 3
+        if sisfield:
+            tempsoftrad = 5
+
+    tempsoftrad = min(tempsoftrad, 5)
+
+    if tempsoftth is None:
+        tempsoftth = 30
+        if sisfield:
+            tempsoftth = 50
+
+    if thsad is None:
+        thsad = tht
+
+    if edgem is None:
+        edgem = sisfield
+
+    exprefil = prefil is not None
+
+    if prefil is None:
+        # XXX planes parameter?
+        if chroma:
+            if sisfield:
+                prefil = BlurForASTDR(clip=MinBlurForASTDRmc(clip=input, r=3, planes=[1, 2]), amount=1)
+            else:
+                prefil = MinBlurForASTDRmc(clip=input, r=3, blurrep=True)
+        else:
+            prefil = BlurForASTDR(clip=input, amount=1.5)
+
+
+    if sisfield:
+        if edgemprefil is not None:
+            edgemprefil_even = edgemprefil_odd = edgemprefil
+        elif not exprefil:
+            edgemprefil_even = edgemprefil_odd = prefil
+        else:
+            edgemprefil_even = edgemprefil_odd = None
+
+        if edgemprefil_even is not None:
+            # SelectEven followed by duplicating every frame radius * 2 + 1 times
+            edgemprefil_even = edgemprefil_even.std.SelectEvery(cycle=2, offsets=[0 for i in range(tempsoftrad * 2 + 1)])
+
+        if edgemprefil_odd is not None:
+            # SelectOdd followed by duplicating every frame radius * 2 + 1 times
+            edgemprefil_even = edgemprefil_even.std.SelectEvery(cycle=2, offsets=[1 for i in range(tempsoftrad * 2 + 1)])
+
+        ieven = mc4ASTDRmc(clip=input.std.SelectEvery(cycle=2, offsets=0), radius=tempsoftrad, prefil=prefil.std.SelectEvery(cycle=2, offsets=0), thsad=thsad, chroma=chroma)
+        asteven = ASTDR(clip=ieven, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil_even)
+        asteven = asteven.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
+
+        iodd = mc4ASTDRmc(clip=input.std.SelectEvery(cycle=2, offsets=1), radius=tempsoftrad, prefil=prefil.std.SelectEvery(cycle=2, offsets=1), thsad=thsad, chroma=chroma)
+        astodd = ASTDR(clip=iodd, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil_odd)
+        astodd = astodd.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
+
+        ASTDRclip = core.std.Interleave(clips=[asteven, astodd])
+    else: # not sisfield
+        if edgemprefil is None:
+            edgemprefil = prefil
+
+        # duplicate every frame radius * 2 + 1 times
+        edgemprefil = edgemprefil.std.SelectEvery(cycle=1, offsets=[0 for i in range(tempsoftrad * 2 + 1)])
+
+        mcclip = mc4ASTDRmc(clip=input, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma)
+
+        ASTDRclip = ASTDR(clip=mcclip, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil)
+        ASTDRclip = ASTDRclip.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
+
+        # XXX technically it should be TEdgeMask
+        derbmask = input.std.Prewitt(planes=0).std.Inflate(planes=0)
+
+        ASTDRclip = core.std.MaskedMerge(clipa=input, clipb=ASTDRclip, derbmask, first_plane=True, planes=[1, 2])
+
+    return ASTDRclip

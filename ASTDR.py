@@ -290,7 +290,7 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
             edgemprefil = prefil
 
         # duplicate every frame radius * 2 + 1 times
-        edgemprefil = edgemprefil.std.SelectEvery(cycle=1, offsets=[0 for i in range(tempsoftrad * 2 + 1)])
+        edgemprefil = core.std.Interleave(clips=[edgemprefil for i in range(tempsoftrad * 2 + 1)])
 
         mcclip = mc4ASTDRmc(clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma)
 

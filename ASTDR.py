@@ -92,7 +92,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
     if sisfield:
         chrom_spac = strength * 2 / 5
     filtered_uv = filtered_uv.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
-    filtered_uv = BlurForASTDR(filtered_uv, amount=blstr, planes=[1, 2])
+    filtered_uv = BlurForASTDR(input_clip=filtered_uv, amount=blstr, planes=[1, 2])
 
     if not sisfield:
         filtered_uv = filtered_uv.warp.AWarpSharp2(depth=4, chroma=0, cplace="mpeg2", planes=[1, 2])
@@ -109,7 +109,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
         filtered_odd = input_clip.std.SelectEvery(cycle=2, offsets=1)
         filtered_odd = filtered_odd.decross.DeCross(thresholdy=15, noise=dcn, margin=1).flux.SmoothST(temporal_threshold=fluxstv, spatial_threshold=flux_spatial_threshold, planes=[1, 2])
         filtered_odd = filtered_odd.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
-        filtered_odd = BlurForASTDR(filtered_odd, amount=blstr, planes=[1, 2])
+        filtered_odd = BlurForASTDR(input_clip=filtered_odd, amount=blstr, planes=[1, 2])
         filtered_odd = filtered_odd.fft3dfilter.FFT3DFilter(sigma=sigma, sigma3=sigma3, planes=[1, 2], degrid=1)
         filtered_uv = core.std.Interleave([filtered_uv, filtered_odd])
 
@@ -122,15 +122,15 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
         momask = adjust.Tweak(clip=input_clip, sat=1.1).motionmask.MotionMask(th1=1, th2=1, tht=tht)
         momaskinv = momask.std.Maximum(planes=0).std.Inflate(planes=0).std.Invert(planes=0).std.Levels(min_in=0, gamma=2, max_in=255, min_out=0, max_out=255, planes=0)
 
-        filtered = core.std.MaskedMerge(filtered_uv, input_clip, momaskinv, first_plane=True, planes=[1, 2])
-        last = core.std.MaskedMerge(input_clip, filtered, momask.std.Maximum(planes=[1, 2]).std.Inflate(planes=[1, 2]), planes=[1, 2])
+        filtered = core.std.MaskedMerge(clipa=filtered_uv, clipb=input_clip, mask=momaskinv, first_plane=True, planes=[1, 2])
+        last = core.std.MaskedMerge(clipa=input_clip, clipb=filtered, mask=momask.std.Maximum(planes=[1, 2]).std.Inflate(planes=[1, 2]), planes=[1, 2])
 
     if edgem:
         if edgemprefil is None:
             edgemprefil = input_clip
 
         edgemclip = edgemprefil.std.Sobel(planes=0).std.Binarize(threshold=5, planes=0).std.Maximum(planes=0).std.Inflate(planes=0)
-        last = core.std.MaskedMerge(input_clip, last, edgemclip, first_plane=True, planes=[1, 2])
+        last = core.std.MaskedMerge(clipa=input_clip, clipb=last, mask=edgemclip, first_plane=True, planes=[1, 2])
 
     return last
 
@@ -175,7 +175,7 @@ def MinBlurForASTDRmc(input_clip, r=1, blurrep=False, planes=None):
                 1, 1, 1]
 
     if r == 0:
-        RG11D = sbrForASTDRmc(input_clip)
+        RG11D = sbrForASTDRmc(input_clip=input_clip)
     else:
         RG11D = input_clip.std.Convolution(matrix=matrix11, planes=planes)
         # Zero..two passes:
@@ -253,11 +253,11 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         # XXX planes parameter?
         if chroma:
             if sisfield:
-                prefil = BlurForASTDR(clip=MinBlurForASTDRmc(clip=input_clip, r=3, planes=[1, 2]), amount=1)
+                prefil = BlurForASTDR(input_clip=MinBlurForASTDRmc(input_clip=input_clip, r=3, planes=[1, 2]), amount=1)
             else:
-                prefil = MinBlurForASTDRmc(clip=input_clip, r=3, blurrep=True)
+                prefil = MinBlurForASTDRmc(input_clip=input_clip, r=3, blurrep=True)
         else:
-            prefil = BlurForASTDR(clip=input_clip, amount=1.5)
+            prefil = BlurForASTDR(input_clip=input_clip, amount=1.5)
 
 
     if sisfield:
@@ -300,6 +300,6 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         # XXX technically it should be TEdgeMask
         derbmask = input_clip.std.Prewitt(planes=0).std.Inflate(planes=0)
 
-        ASTDRclip = core.std.MaskedMerge(clipa=input_clip, clipb=ASTDRclip, derbmask, first_plane=True, planes=[1, 2])
+        ASTDRclip = core.std.MaskedMerge(clipa=input_clip, clipb=ASTDRclip, mask=derbmask, first_plane=True, planes=[1, 2])
 
     return ASTDRclip

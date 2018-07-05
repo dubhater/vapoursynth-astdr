@@ -276,11 +276,11 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
             # SelectOdd followed by duplicating every frame radius * 2 + 1 times
             edgemprefil_even = edgemprefil_even.std.SelectEvery(cycle=2, offsets=[1 for i in range(tempsoftrad * 2 + 1)])
 
-        ieven = mc4ASTDRmc(clip=input_clip.std.SelectEvery(cycle=2, offsets=0), radius=tempsoftrad, prefil=prefil.std.SelectEvery(cycle=2, offsets=0), thsad=thsad, chroma=chroma)
+        ieven = mc4ASTDRmc(input_clip=input_clip.std.SelectEvery(cycle=2, offsets=0), radius=tempsoftrad, prefil=prefil.std.SelectEvery(cycle=2, offsets=0), thsad=thsad, chroma=chroma)
         asteven = ASTDR(clip=ieven, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil_even)
         asteven = asteven.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
 
-        iodd = mc4ASTDRmc(clip=input_clip.std.SelectEvery(cycle=2, offsets=1), radius=tempsoftrad, prefil=prefil.std.SelectEvery(cycle=2, offsets=1), thsad=thsad, chroma=chroma)
+        iodd = mc4ASTDRmc(input_clip=input_clip.std.SelectEvery(cycle=2, offsets=1), radius=tempsoftrad, prefil=prefil.std.SelectEvery(cycle=2, offsets=1), thsad=thsad, chroma=chroma)
         astodd = ASTDR(clip=iodd, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil_odd)
         astodd = astodd.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
 
@@ -292,7 +292,7 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         # duplicate every frame radius * 2 + 1 times
         edgemprefil = core.std.Interleave(clips=[edgemprefil for i in range(tempsoftrad * 2 + 1)])
 
-        mcclip = mc4ASTDRmc(clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma)
+        mcclip = mc4ASTDRmc(input_clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma)
 
         ASTDRclip = ASTDR(clip=mcclip, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil)
         ASTDRclip = ASTDRclip.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)

@@ -216,12 +216,15 @@ def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma):
     b = []
 
     for i in range(1, radius + 1):
-        b += core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=True, chroma=chroma), thsad=thsad)
-        f += core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=False, chroma=chroma), thsad=thsad)
+        b.append(core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=True, chroma=chroma), thsad=thsad))
+        f.append(core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=False, chroma=chroma), thsad=thsad))
+
 
     f.reverse()
+    f.append(input_clip)
+    f.extend(b)
 
-    return core.std.Interleave(clips=f + input_clip + b)
+    return core.std.Interleave(clips=f)
 
 
 def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False):

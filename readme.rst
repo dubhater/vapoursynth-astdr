@@ -64,7 +64,7 @@ Parameters:
         Default: False.
 
     *exmc*
-        Set to True if using external motion compensation, i.e. if *input_clip* came from std.Interleave[forward_compensated, original, backward_compensated]) or something similar.
+        Set to True if using external motion compensation, i.e. if *input_clip* came from std.Interleave([forward_compensated, original, backward_compensated]) or something similar.
 
         Default: False.
 

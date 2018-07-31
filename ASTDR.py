@@ -203,7 +203,7 @@ def MinBlurForASTDRmc(input_clip, r=1, blurrep=False, planes=None):
     return last
 
 
-def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma):
+def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma, motion_vectors=None):
     core = vs.get_core()
 
     if radius == 1:
@@ -216,8 +216,15 @@ def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma):
     b = []
 
     for i in range(1, radius + 1):
-        b.append(core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=True, chroma=chroma), thsad=thsad))
-        f.append(core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=core.mv.Analyse(super=masuper, delta=i, isb=False, chroma=chroma), thsad=thsad))
+        if motion_vectors is None:
+            forward_vectors = core.mv.Analyse(super=masuper, delta=i, isb=False, chroma=chroma)
+            backward_vectors = core.mv.Analyse(super=masuper, delta=i, isb=True, chroma=chroma)
+        else:
+            forward_vectors = motion_vectors[(radius - 1) - (i - 1)]
+            backward_vectors = motion_vectors[radius + (i - 1)]
+
+        f.append(core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=forward_vectors, thsad=thsad))
+        b.append(core.mv.Compensate(clip=input_clip, super=mcsuper, vectors=backward_vectors, thsad=thsad))
 
 
     f.reverse()
@@ -227,7 +234,7 @@ def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma):
     return core.std.Interleave(clips=f)
 
 
-def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False):
+def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False, motion_vectors=None):
     core = vs.get_core()
 
     sisfield = separated
@@ -251,6 +258,21 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         edgem = sisfield
 
     exprefil = prefil is not None
+
+    if motion_vectors is not None:
+        if sisfield:
+            raise ValueError("ASTDRmc: motion_vectors cannot be used when separated is True.")
+
+        if not isinstance(motion_vectors, list):
+            raise TypeError("ASTDRmc: motion_vectors must be a list.")
+
+        if len(motion_vectors) != tempsoftrad * 2:
+            raise ValueError("ASTDRmc: motion_vectors must be a list of {} clips (tempsoftrad * 2).".format(tempsoftrad * 2))
+
+        for i in range(len(motion_vectors)):
+            if not isinstance(motion_vectors[i], vs.VideoNode):
+                raise TypeError("ASTDRmc: motion_vectors[{}] must be a clip, not {}.".format(i, type(motion_vectors[i])))
+
 
     if prefil is None:
         # XXX planes parameter?
@@ -295,7 +317,7 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         # duplicate every frame radius * 2 + 1 times
         edgemprefil = core.std.Interleave(clips=[edgemprefil for i in range(tempsoftrad * 2 + 1)])
 
-        mcclip = mc4ASTDRmc(input_clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma)
+        mcclip = mc4ASTDRmc(input_clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma, motion_vectors)
 
         ASTDRclip = ASTDR(input_clip=mcclip, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil)
         ASTDRclip = ASTDRclip.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)

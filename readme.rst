@@ -115,6 +115,22 @@ Most parameters are the same as ASTDR's. The differences are documented below:
 
         Default: False.
 
+    *motion_vectors*
+        A list of clips obtained by calling mv.Analyse or
+        mv.Recalculate.
+
+        With this parameter one can reuse the motion vectors from
+        other motion-compensated filtering.
+
+        The clips created with isb=False must appear first, sorted by
+        delta in descending order. Then the clips created with
+        isb=True, sorted by delta in ascending order.
+
+        If this parameter is not used, the motion vectors will be
+        created internally.
+
+        Default: None.
+
 
 Requirements
 ============

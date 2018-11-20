@@ -317,7 +317,7 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         # duplicate every frame radius * 2 + 1 times
         edgemprefil = core.std.Interleave(clips=[edgemprefil for i in range(tempsoftrad * 2 + 1)])
 
-        mcclip = mc4ASTDRmc(input_clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma, motion_vectors)
+        mcclip = mc4ASTDRmc(input_clip=input_clip, radius=tempsoftrad, prefil=prefil, thsad=thsad, chroma=chroma, motion_vectors=motion_vectors)
 
         ASTDRclip = ASTDR(input_clip=mcclip, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil)
         ASTDRclip = ASTDRclip.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)

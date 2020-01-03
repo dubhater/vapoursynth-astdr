@@ -323,7 +323,7 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         ASTDRclip = ASTDRclip.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
 
         # XXX technically it should be TEdgeMask
-        derbmask = input_clip.std.Prewitt(planes=0).std.Inflate(planes=0)
+        derbmask = input_clip.std.Prewitt(planes=0).std.Binarize(threshold=3, planes=0).std.Inflate(planes=0)
 
         ASTDRclip = core.std.MaskedMerge(clipa=input_clip, clipb=ASTDRclip, mask=derbmask, first_plane=True, planes=[1, 2])
 

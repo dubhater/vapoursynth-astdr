@@ -1,7 +1,7 @@
 import vapoursynth as vs
 
 
-# Based on ASTDR DeRainbow function v1.74 for Avisynth
+# Based on ASTDR DeRainbow function v1.78 for Avisynth
 
 
 # amount doesn't go below 0 because std.Convolution doesn't take coefficients greater than 1023.
@@ -25,7 +25,7 @@ def BlurForASTDR(input_clip, amount=0, planes=None):
     return input_clip.std.Convolution(matrix=blur_matrix, planes=planes)
 
 
-def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=None, fluxstv=None, dcn=None, edgem=None, exmc=None, edgemprefil=None, separated=None):
+def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=None, fluxstv=None, dcn=None, edgem=None, exmc=None, edgemprefil=None, separated=None, nomask=False):
     core = vs.get_core()
 
     sisfield = separated
@@ -116,7 +116,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
 
     last = filtered_uv
 
-    if not exmc:
+    if not (exmc or nomask):
         import adjust
 
         momask = adjust.Tweak(clip=input_clip, sat=1.1).motionmask.MotionMask(th1=1, th2=1, tht=tht)
@@ -125,7 +125,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
         filtered = core.std.MaskedMerge(clipa=filtered_uv, clipb=input_clip, mask=momaskinv, first_plane=True, planes=[1, 2])
         last = core.std.MaskedMerge(clipa=input_clip, clipb=filtered, mask=momask.std.Maximum(planes=[1, 2]).std.Inflate(planes=[1, 2]), planes=[1, 2])
 
-    if edgem:
+    if edgem and not nomask:
         if edgemprefil is None:
             edgemprefil = input_clip
 
@@ -234,7 +234,7 @@ def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma, motion_vectors=None):
     return core.std.Interleave(clips=f)
 
 
-def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False, motion_vectors=None):
+def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False, motion_vectors=None, nomask=False):
     core = vs.get_core()
 
     sisfield = separated
@@ -322,9 +322,10 @@ def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempso
         ASTDRclip = ASTDR(input_clip=mcclip, strength=strength, tempsoftth=tempsoftth, tempsoftrad=tempsoftrad, tempsoftsc=tempsoftsc, blstr=blstr, tht=tht, fluxstv=fluxstv, dcn=dcn, edgem=edgem, exmc=True, edgemprefil=edgemprefil)
         ASTDRclip = ASTDRclip.std.SelectEvery(cycle=tempsoftrad * 2 + 1, offsets=tempsoftrad)
 
-        # XXX technically it should be TEdgeMask
-        derbmask = input_clip.std.Prewitt(planes=0).std.Binarize(threshold=3, planes=0).std.Inflate(planes=0)
+        if not nomask:
+            # XXX technically it should be TEdgeMask
+            derbmask = input_clip.std.Prewitt(planes=0).std.Binarize(threshold=3, planes=0).std.Inflate(planes=0)
 
-        ASTDRclip = core.std.MaskedMerge(clipa=input_clip, clipb=ASTDRclip, mask=derbmask, first_plane=True, planes=[1, 2])
+            ASTDRclip = core.std.MaskedMerge(clipa=input_clip, clipb=ASTDRclip, mask=derbmask, first_plane=True, planes=[1, 2])
 
     return ASTDRclip

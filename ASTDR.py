@@ -4,6 +4,27 @@ import vapoursynth as vs
 # Based on ASTDR DeRainbow function v1.78 for Avisynth
 
 
+# Hqdn3d is very serial, but the planes can be processed independently by three different instances, which brings a bit of multithreading.
+def MultithreadedHqdn3d(input_clip, lum_spac, lum_tmp, chrom_spac, chrom_tmp):
+    core = vs.get_core()
+    
+    if input_clip.format.num_planes == 1:
+        return core.hqdn3d.Hqdn3d(input_clip, lum_spac=lum_spac, lum_tmp=lum_tmp, chrom_spac=chrom_spac, chrom_tmp=chrom_tmp)
+    
+    luma = core.std.ShufflePlanes(clips=input_clip, planes=0, colorfamily=vs.GRAY)
+    chroma1 = core.std.ShufflePlanes(clips=input_clip, planes=1, colorfamily=vs.GRAY)
+    chroma2 = core.std.ShufflePlanes(clips=input_clip, planes=2, colorfamily=vs.GRAY)
+
+    if lum_spac > 0 or lum_tmp > 0:
+        luma = core.hqdn3d.Hqdn3d(luma, lum_spac=lum_spac, lum_tmp=lum_tmp)
+    
+    if chrom_spac > 0 or chrom_tmp > 0:
+        chroma1 = core.hqdn3d.Hqdn3d(chroma1, lum_spac=chrom_spac, lum_tmp=chrom_tmp)
+        chroma2 = core.hqdn3d.Hqdn3d(chroma2, lum_spac=chrom_spac, lum_tmp=chrom_tmp)
+    
+    return core.std.ShufflePlanes(clips=[luma, chroma1, chroma2], planes=[0, 0, 0], colorfamily=input_clip.format.color_family)
+
+
 # amount doesn't go below 0 because std.Convolution doesn't take coefficients greater than 1023.
 def BlurForASTDR(input_clip, amount=0, planes=None):
     lower_limit = 0
@@ -91,7 +112,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
     chrom_spac = strength * 3 / 5
     if sisfield:
         chrom_spac = strength * 2 / 5
-    filtered_uv = filtered_uv.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
+    filtered_uv = MultithreadedHqdn3d(filtered_uv, lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
     filtered_uv = BlurForASTDR(input_clip=filtered_uv, amount=blstr, planes=[1, 2])
 
     if not sisfield:
@@ -108,7 +129,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
     if fnomc:
         filtered_odd = input_clip.std.SelectEvery(cycle=2, offsets=1)
         filtered_odd = filtered_odd.decross.DeCross(thresholdy=15, noise=dcn, margin=1).flux.SmoothST(temporal_threshold=fluxstv, spatial_threshold=flux_spatial_threshold, planes=[1, 2])
-        filtered_odd = filtered_odd.hqdn3d.Hqdn3d(lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
+        filtered_odd = MultithreadedHqdn3d(filtered_odd, lum_spac=0, lum_tmp=0, chrom_spac=chrom_spac, chrom_tmp=strength).focus2.TemporalSoften2(radius=tempsoftrad, luma_threshold=0, chroma_threshold=tempsoftth, scenechange=tempsoftsc, mode=2)
         filtered_odd = BlurForASTDR(input_clip=filtered_odd, amount=blstr, planes=[1, 2])
         filtered_odd = filtered_odd.fft3dfilter.FFT3DFilter(sigma=sigma, sigma3=sigma3, planes=[1, 2], degrid=1)
         filtered_uv = core.std.Interleave([filtered_uv, filtered_odd])

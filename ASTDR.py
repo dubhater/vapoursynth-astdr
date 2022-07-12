@@ -6,7 +6,7 @@ import vapoursynth as vs
 
 # Hqdn3d is very serial, but the planes can be processed independently by three different instances, which brings a bit of multithreading.
 def MultithreadedHqdn3d(input_clip, lum_spac, lum_tmp, chrom_spac, chrom_tmp):
-    core = vs.get_core()
+    core = vs.core
     
     if input_clip.format.num_planes == 1:
         return core.hqdn3d.Hqdn3d(input_clip, lum_spac=lum_spac, lum_tmp=lum_tmp, chrom_spac=chrom_spac, chrom_tmp=chrom_tmp)
@@ -47,7 +47,7 @@ def BlurForASTDR(input_clip, amount=0, planes=None):
 
 
 def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=None, fluxstv=None, dcn=None, edgem=None, exmc=None, edgemprefil=None, separated=None, nomask=False):
-    core = vs.get_core()
+    core = vs.core
 
     sisfield = separated
     fnomc = sisfield and not exmc
@@ -160,7 +160,7 @@ def ASTDR(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoft
 # Only the parts needed by MinBlurForASTDRmc are included.
 
 def sbrForASTDRmc(input_clip):
-    core = vs.get_core()
+    core = vs.core
 
     matrix11 = [1, 2, 1,
                 2, 4, 2,
@@ -181,7 +181,7 @@ def sbrForASTDRmc(input_clip):
 # Only the parts needed by ASTDRmc are included.
 
 def MinBlurForASTDRmc(input_clip, r=1, blurrep=False, planes=None):
-    core = vs.get_core()
+    core = vs.core
 
     if r < 0 or r > 3:
         raise ValueError("MinBlurForASTDRmc: r must be between 0 and 3 (inclusive).")
@@ -225,7 +225,7 @@ def MinBlurForASTDRmc(input_clip, r=1, blurrep=False, planes=None):
 
 
 def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma, motion_vectors=None):
-    core = vs.get_core()
+    core = vs.core
 
     if radius == 1:
         thsad = None
@@ -256,7 +256,7 @@ def mc4ASTDRmc(input_clip, radius, prefil, thsad, chroma, motion_vectors=None):
 
 
 def ASTDRmc(input_clip, strength=None, tempsoftth=None, tempsoftrad=None, tempsoftsc=None, blstr=None, tht=255, fluxstv=None, dcn=None, edgem=None, thsad=None, prefil=None, chroma=False, edgemprefil=None, separated=False, motion_vectors=None, nomask=False):
-    core = vs.get_core()
+    core = vs.core
 
     sisfield = separated
 
